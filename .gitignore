@@ -2,3 +2,5 @@
 /.cache/
 /.upstream/
 
+# Local debugging probes and their output.
+/.tmp_*

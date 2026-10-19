@@ -12951,7 +12951,7 @@ impl Vm {
             });
         }
         match result {
-            Err(error @ RuntimeError::CoroutineYield(_)) if captured.is_none() => {
+            Err(RuntimeError::CoroutineYield(_)) if captured.is_none() => {
                 Err(RuntimeError::UnsupportedLibraryFeature {
                     function: "BluV1 native operation",
                     feature: "a yielding callback without a resumable owned frame",
@@ -28051,28 +28051,14 @@ fn close_io_file(
     userdata: UserDataId,
     function: &'static str,
 ) -> Result<(), RuntimeError> {
-    let file = {
-        let state = vm
-            .io_file_handles
-            .get_mut(&userdata)
-            .ok_or(RuntimeError::Type {
-                operation: function,
-                expected: "file handle",
-                actual: "userdata",
-            })?;
-        if state.closed {
-            return Err(RuntimeError::Raised(Value::String(Arc::from(
-                &b"attempt to use a closed file"[..],
-            ))));
-        }
-        Arc::clone(&state.file)
-    };
-    file.close()?;
+    let file = io_file_resource(vm, userdata, function)?;
+    // Like Lua's fclose path, a close attempt consumes the handle even when
+    // the host reports a failure (for example, while flushing buffered data).
     if let Some(state) = vm.io_file_handles.get_mut(&userdata) {
         state.closed = true;
     }
     vm.io_file_iterators.retain(|_, handle| *handle != userdata);
-    Ok(())
+    file.close()
 }
 
 fn close_io_file_result(
@@ -28080,15 +28066,10 @@ fn close_io_file_result(
     userdata: UserDataId,
     function: &'static str,
 ) -> Result<Vec<Value>, RuntimeError> {
-    let file = io_file_resource(vm, userdata, function)?;
-    match file.close() {
-        Ok(()) => {
-            if let Some(state) = vm.io_file_handles.get_mut(&userdata) {
-                state.closed = true;
-            }
-            vm.io_file_iterators.retain(|_, handle| *handle != userdata);
-            Ok(vec![Value::Boolean(true)])
-        }
+    // Validate before converting host failures to Lua's nil/error result.
+    io_file_resource(vm, userdata, function)?;
+    match close_io_file(vm, userdata, function) {
+        Ok(()) => Ok(vec![Value::Boolean(true)]),
         Err(error) => io_operation_failure(error),
     }
 }

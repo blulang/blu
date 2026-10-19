@@ -10017,10 +10017,7 @@ return not ok and message == expected"#;
 
         fn read_number(&self) -> Result<Option<Vec<u8>>, RuntimeError> {
             let mut token = Vec::new();
-            loop {
-                let Some(bytes) = self.read(IoReadRequest::Bytes(1))? else {
-                    break;
-                };
+            while let Some(bytes) = self.read(IoReadRequest::Bytes(1))? {
                 let byte = bytes[0];
                 if token.is_empty() && byte.is_ascii_whitespace() {
                     continue;
@@ -10388,6 +10385,51 @@ return not ok and message == expected"#;
                 vec![Value::String(Arc::from(&b"nil"[..]))],
                 "profile {profile:?}"
             );
+        }
+    }
+
+    #[test]
+    fn failed_io_close_invalidates_the_handle_without_retrying_during_gc() {
+        struct FailingCloseFile(Arc<AtomicUsize>);
+
+        impl IoFile for FailingCloseFile {
+            fn close(&self) -> Result<(), RuntimeError> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Err(RuntimeError::Raised(Value::String(Arc::from(
+                    &b"host close failure"[..],
+                ))))
+            }
+        }
+
+        for profile in [
+            SemanticProfile::Lua51,
+            SemanticProfile::Lua52,
+            SemanticProfile::Lua53,
+            SemanticProfile::Lua54,
+            SemanticProfile::Lua55,
+        ] {
+            for close in ["file:close()", "io.close(file)"] {
+                let closes = Arc::new(AtomicUsize::new(0));
+                let callback_closes = Arc::clone(&closes);
+                let mut engine = Engine::default();
+                engine.vm_mut().set_io_file_opener(move |_, _| {
+                    Ok(Arc::new(FailingCloseFile(Arc::clone(&callback_closes))) as Arc<dyn IoFile>)
+                });
+                let source = format!(
+                    r#"
+                        local file = io.open("answer.txt")
+                        local result, message = {close}
+                        local closed = io.type(file) == "closed file"
+                        local retry_ok, retry_error = pcall(file.close, file)
+                        return result == nil and message == "host close failure"
+                            and closed and not retry_ok and type(retry_error) == "string"
+                    "#
+                );
+                let result = engine.execute_owned_source(&source, profile).unwrap();
+                assert_eq!(result, vec![Value::Boolean(true)], "{profile:?}: {close}");
+                engine.vm_mut().collect(std::iter::empty()).unwrap();
+                assert_eq!(closes.load(Ordering::SeqCst), 1, "{profile:?}: {close}");
+            }
         }
     }
 

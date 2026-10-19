@@ -2126,10 +2126,7 @@ where
     let mut decimal_mantissa_digit = false;
     let mut hex_mantissa_digit = false;
 
-    loop {
-        let Some(byte) = read()? else {
-            break;
-        };
+    while let Some(byte) = read()? {
         if token.is_empty() && byte.is_ascii_whitespace() {
             continue;
         }
@@ -5280,15 +5277,16 @@ local close_again_ok, close_again_error = pcall(close_file.close, close_file)
 local line_file = io.open("line-read-failure", "r")
 local line_iterator = line_file:lines("*l")
 local line_ok, line_error = pcall(line_iterator)
-return read_result == nil and type(read_error) == "string"
-    and write_result == nil and type(write_error) == "string"
-    and seek_result == nil and type(seek_error) == "string"
-    and flush_result == nil and type(flush_error) == "string"
-    and buffer_result == nil and type(buffer_error) == "string"
-    and close_result == nil and type(close_error) == "string"
-    and close_type == "closed file"
-    and not close_again_ok and type(close_again_error) == "string"
-    and not line_ok and type(line_error) == "string"
+assert(read_result == nil and type(read_error) == "string", "read_result")
+assert(write_result == nil and type(write_error) == "string", "write_result")
+assert(seek_result == nil and type(seek_error) == "string", "seek_result")
+assert(flush_result == nil and type(flush_error) == "string", "flush_result")
+assert(buffer_result == nil and type(buffer_error) == "string", "buffer_result")
+assert(close_result == nil and type(close_error) == "string", "close_result")
+assert(close_type == "closed file", "close_type")
+assert(not close_again_ok and type(close_again_error) == "string", "close_again_error")
+assert(not line_ok and type(line_error) == "string", "line_error")
+return true
 "#;
 const IO_OPERATION_FAILURE_REFERENCE_SOURCE: &str = r#"
 local missing, missing_error = io.open("definitely-missing-file", "rb")
@@ -13445,7 +13443,7 @@ fn verify_foreign_lua_binary_case(
         SemanticProfile::Lua54,
         SemanticProfile::Lua55,
     ];
-    let version_tags = [b'Q', b'R', b'S', b'T', b'U'];
+    let version_tags = *b"QRSTU";
     for (index, ((_name, reference_executable), profile)) in
         references.iter().zip(profiles).enumerate()
     {

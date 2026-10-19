@@ -2863,7 +2863,7 @@ impl<'a, 'prototypes> Lowerer<'a, 'prototypes> {
         if statement.values().is_empty() {
             return Ok(());
         }
-        for (name, value) in statement.names().iter().copied().zip(values.into_iter()) {
+        for (name, value) in statement.names().iter().copied().zip(values) {
             if let Some(environment) = self.resolve_environment(statement.span())? {
                 let key = self.lower_environment_key(name.span())?;
                 if self.profile == SemanticProfile::Lua55 {

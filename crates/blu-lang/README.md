@@ -1,7 +1,7 @@
 # blu-lang
 
 `blu-lang` is the public Rust embedding facade for
-[Blu](https://github.com/borg-ml/blu), a Lua/Luau superset language and
+[Blu](https://github.com/blulang/blu), a Lua/Luau superset language and
 runtime.
 
 ```rust
@@ -28,7 +28,7 @@ profile-aware `Engine::execute_owned_source` path exposes the bounded owned
 frontend baseline for Lua 5.1–5.5 as well as Blu and Luau; unsupported behavior
 still fails explicitly outside that implemented slice.
 
-See the [repository README](https://github.com/borg-ml/blu) for current
+See the [repository README](https://github.com/blulang/blu) for current
 capabilities, embedding details, compatibility scope, and upstream attribution.
 
 Portable package execution checks declared capability requirements against the

@@ -1,5 +1,0 @@
-local f = coroutine.wrap(function()
-  table.sort({1, 2, 3}, coroutine.yield)
-end)
-local ok, message = pcall(f)
-print(ok, message, type(message), string.find(message, "yield across"))
